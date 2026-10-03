@@ -13,11 +13,10 @@
     "poll_interval_seconds": 300
   },
   "thresholds": {
-    "urgent_low": 55,
-    "low": 70,
-    "target_bottom": 80,
-    "target_top": 140,
-    "high": 180,
-    "urgent_high": 250
+    "urgent_low": 59,
+    "low": 79,
+    "target_top": 160,
+    "elevated": 200,
+    "high": 250
   }
 }

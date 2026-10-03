@@ -1,18 +1,22 @@
-import requests
 import json
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
 class HueController:
     """Controls a Philips Hue light via the local Bridge REST API."""
 
+    # Hue (0-65535), Saturation (0-254), Brightness (1-254)
     COLOR_PRESETS = {
-        "RED": {"hue": 0, "sat": 254, "bri": 200},          # High / Urgent alert
-        "YELLOW": {"hue": 12750, "sat": 254, "bri": 180},   # Warning / Edge
-        "GREEN": {"hue": 25500, "sat": 254, "bri": 140},    # In Target Range
-        "BLUE": {"hue": 46920, "sat": 254, "bri": 140},     # Stale / Informational
-        "WHITE": {"hue": 0, "sat": 0, "bri": 100},          # Neutral fallback
+        "DARK_RED":     {"hue": 0,     "sat": 254, "bri": 220},  # < 60
+        "LIGHT_RED":    {"hue": 2000,  "sat": 140, "bri": 180},  # 60 - 79
+        "GREEN":        {"hue": 25500, "sat": 254, "bri": 160},  # 80 - 160
+        "LIGHT_GREEN":  {"hue": 21000, "sat": 160, "bri": 160},  # 161 - 200
+        "LIGHT_YELLOW": {"hue": 14000, "sat": 140, "bri": 180},  # 201 - 250
+        "DARK_YELLOW":  {"hue": 10500, "sat": 254, "bri": 200},  # 251+ (Amber/Dark Yellow)
+        "BLUE":         {"hue": 46920, "sat": 254, "bri": 140},  # Stale / Offline
+        "WHITE":        {"hue": 0,     "sat": 0,   "bri": 100},  # Fallback
     }
 
     def __init__(self, bridge_ip: str, api_token: str, light_id: str):
