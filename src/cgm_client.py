@@ -9,8 +9,8 @@ logger = logging.getLogger("glucose_hue")
 class CGMClient:
     """
     Client interface for querying blood glucose data from Dexcom Share servers.
-    Handles authentication across geographic regions (US vs. OUS/Canada/Europe)
-    and normalizes timestamps to UTC for synchronization math.
+    Handles authentication across geographic regions (US vs. OUS/Canada)
+    and normalizes timestamps to UTC for phase-locked sleep calculations.
     """
 
     def __init__(self, config: dict):
@@ -25,7 +25,6 @@ class CGMClient:
         password = config.get("dexcom_password")
         region_str = config.get("dexcom_region", "ous").lower()
 
-        # OUS = Outside US (Canada, Europe, etc.); US = United States servers
         region = Region.OUS if region_str == "ous" else Region.US
 
         logger.info(f"Authenticating with Dexcom ({region_str.upper()})...")
@@ -39,15 +38,14 @@ class CGMClient:
         Returns:
             Tuple of:
                 - sgv (int or None): Serum glucose value in mg/dL.
-                - trend (str or None): Text description of glucose direction (e.g. 'steady').
+                - trend (str or None): Direction description (e.g. 'steady').
                 - reading_datetime (datetime or None): Timezone-aware UTC timestamp
-                  representing when the sensor actually measured the value.
+                  representing when the sensor took the measurement.
         """
         try:
             reading = self.dexcom.get_latest_glucose_reading()
             if reading:
                 dt = reading.datetime
-                # Guarantee UTC timezone awareness to prevent naive vs aware comparison errors
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 return reading.value, reading.trend_description, dt
