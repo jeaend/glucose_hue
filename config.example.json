@@ -1,0 +1,23 @@
+{
+  "hue": {
+    "bridge_ip": "192.168.18.X",
+    "api_token": "YOUR_HUE_BRIDGE_USERNAME_TOKEN",
+    "light_id": "1"
+  },
+  "cgm": {
+    "provider": "dexcom",
+    "dexcom_username": "YOUR_DEXCOM_USERNAME",
+    "dexcom_password": "YOUR_DEXCOM_PASSWORD",
+    "dexcom_region": "ous",
+    "units": "mg/dL",
+    "poll_interval_seconds": 300
+  },
+  "thresholds": {
+    "urgent_low": 55,
+    "low": 70,
+    "target_bottom": 80,
+    "target_top": 140,
+    "high": 180,
+    "urgent_high": 250
+  }
+}
