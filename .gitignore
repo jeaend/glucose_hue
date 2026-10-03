@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Secrets / Local Config
+config.json
+
+# OS files
+.DS_Store
