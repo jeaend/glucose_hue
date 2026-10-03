@@ -158,3 +158,11 @@ Run these commands directly on the Raspberry Pi:
    journalctl -u glucose-hue.service -f
    ```
    *(Press `Ctrl + C` anytime to exit log viewing without stopping the service.)*
+
+---
+
+## Possible Extensions 
+
+* **Urgent Low Pulse ("Breathe" Effect):** Trigger Hue's native breathing pulse (`"alert": "lselect"`) on critical lows (< 55 mg/dL) or rapid downward trends ($\downarrow\downarrow$) (and/or upward).
+* **Stale Data Warning:** Turn the lamp a soft dim blue if the Dexcom reading is older than 10–15 minutes (sensor warm-up, missed reading, or signal loss).
+* **Hue Switch / Smart Button Snooze:** Press a local Hue switch to pause the light for 60 minutes for sleeping or faulty readings like a compression low, while keeping the urgent-low override active. 
