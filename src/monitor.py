@@ -1,6 +1,8 @@
 import time
 import json
 import logging
+import calendar
+from math import sin, cos, asin, radians, degrees, pi
 from datetime import datetime, timezone, time as dtime
 from typing import Tuple, List, Dict, Any, Optional
 import requests
@@ -109,12 +111,66 @@ def is_time_in_range(start: dtime, end: dtime, check_time: dtime) -> bool:
         return check_time >= start or check_time < end
 
 
-def apply_time_based_intensity(base_bri: int, sgv: int, schedule: List[Dict[str, Any]]) -> int:
+FULL_DAYLIGHT_ELEVATION = 10.0
+DARK_ELEVATION = -6.0
+
+
+def sun_elevation(lat: float, lon: float, when_utc: datetime) -> float:
     """
-    Dynamically finds the active time interval from the config schedule.
+    Sun elevation in degrees above the horizon (NOAA general solar position equations).
+    Longitude is positive east, negative west.
+    """
+    days_in_year = 366 if calendar.isleap(when_utc.year) else 365
+    day_of_year = when_utc.timetuple().tm_yday
+    utc_hours = when_utc.hour + when_utc.minute / 60 + when_utc.second / 3600
+
+    g = 2 * pi / days_in_year * (day_of_year - 1 + (utc_hours - 12) / 24)
+
+    eot = 229.18 * (
+        0.000075 + 0.001868 * cos(g) - 0.032077 * sin(g)
+        - 0.014615 * cos(2 * g) - 0.040849 * sin(2 * g)
+    )
+    decl = (
+        0.006918 - 0.399912 * cos(g) + 0.070257 * sin(g)
+        - 0.006758 * cos(2 * g) + 0.000907 * sin(2 * g)
+        - 0.002697 * cos(3 * g) + 0.00148 * sin(3 * g)
+    )
+
+    true_solar_minutes = utc_hours * 60 + eot + 4 * lon
+    hour_angle = radians(true_solar_minutes / 4 - 180)
+    lat_r = radians(lat)
+
+    sin_elev = sin(lat_r) * sin(decl) + cos(lat_r) * cos(decl) * cos(hour_angle)
+    return degrees(asin(max(-1.0, min(1.0, sin_elev))))
+
+
+def daylight_scale(daylight: Dict[str, Any], when_utc: datetime) -> Tuple[float, float]:
+    """
+    Brightness multiplier from how high the sun is: day_scale at or above
+    FULL_DAYLIGHT_ELEVATION, dark_scale at or below DARK_ELEVATION, linear in between.
+    Returns (scale, elevation).
+    """
+    elev = sun_elevation(daylight["lat"], daylight["lon"], when_utc)
+    day_scale = daylight.get("day_scale", 1.0)
+    dark_scale = daylight.get("dark_scale", day_scale)
+
+    fraction = (elev - DARK_ELEVATION) / (FULL_DAYLIGHT_ELEVATION - DARK_ELEVATION)
+    fraction = max(0.0, min(1.0, fraction))
+    return dark_scale + (day_scale - dark_scale) * fraction, elev
+
+
+def apply_time_based_intensity(
+    base_bri: int,
+    sgv: int,
+    schedule: List[Dict[str, Any]],
+    daylight: Optional[Dict[str, Any]] = None,
+) -> int:
+    """
+    Fixed clock windows from the schedule (e.g. Night) take priority. Outside them,
+    brightness follows the sun's elevation when a daylight config is present.
     Supports low glucose safety overrides and 1% night mode floor.
     """
-    if not schedule:
+    if not schedule and not daylight:
         return base_bri
 
     now_time = datetime.now().astimezone().time()
@@ -141,6 +197,15 @@ def apply_time_based_intensity(base_bri: int, sgv: int, schedule: List[Dict[str,
             logger.info(f"Active window: {window.get('name', 'Custom')} (Scale: {scale})")
             # Clamp between hardware min 1% (~2) and max (254)
             return max(2, min(254, target_bri))
+
+    if daylight:
+        if sgv < 55:
+            logger.info("Daylight mode (Urgent Low Override -> 100%)")
+            return 254
+
+        scale, elev = daylight_scale(daylight, datetime.now(timezone.utc))
+        logger.info(f"Daylight mode: sun at {elev:.1f}° (Scale: {scale:.2f})")
+        return max(2, min(254, int(base_bri * scale)))
 
     return base_bri
 
@@ -172,6 +237,7 @@ def main():
     cgm = CGMClient(config["cgm"])
     hue = LocalHueController(config["hue"])
     schedule_cfg = config.get("schedule", [])
+    daylight_cfg = config.get("daylight")
     logger.info(f"Glucose Monitor started for {hue.light_name} (ID {hue.light_id}).")
 
     while True:
@@ -189,7 +255,7 @@ def main():
                     sleep_duration = 60
                 else:
                     xy, base_bri, label, alert = get_glucose_state(sgv)
-                    final_bri = apply_time_based_intensity(base_bri, sgv, schedule_cfg)
+                    final_bri = apply_time_based_intensity(base_bri, sgv, schedule_cfg, daylight_cfg)
 
                     logger.info(
                         f"SGV: {sgv} mg/dL | Trend: {trend} -> Setting: {label} (Bri: {final_bri})"

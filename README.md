@@ -118,12 +118,19 @@ This needs to match your Dexcom account setup.
    ```
    
 #### "schedule":
-Defines time-of-day windows to scale lamp brightness automatically (e.g. keeping it dim at night so it doesn't wake you up, but brighter during the day). You can modify, add, or remove windows in the list to fit your personal daily routine. Just ensure all 24 hours of the day are covered so the lamp always knows what brightness level to use.
+Defines fixed clock windows that override the daylight setting (e.g. a "Night" window that keeps the lamp dim while you sleep). Any time not covered by a window follows `"daylight"` below; if `"daylight"` is omitted, uncovered times use the default brightness, so cover all 24 hours with windows instead.
 - "name": A label for the window (e.g. "Day", "Night", "Evening") for logging.
 - "start" and "end": 24-hour time format (`"HH:MM"`). Windows spanning past midnight (e.g. `"22:30"` to `"08:00"`) work automatically.
 - "scale": Multiplier from `0.0` to `1.0` applied to default brightness.
 - "max_bri": (Optional) Hard cap on brightness (`1`-`254`) during this window so normal readings stay subtle.
 - "low_override_bri": (Optional) Brightness level (`1`-`254`) to jump to if glucose hits an urgent low, bypassing `scale` and `max_bri` to get your attention immediately.
+
+#### "daylight":
+(Optional) Scales brightness by how high the sun is at your location, so the lamp dims at sunset whatever the season. The sun's elevation is calculated locally from the date, time and coordinates (NOAA solar position equations), with no external service.
+- "lat" and "lon": Your location in decimal degrees (north and east positive, e.g. `-0.1278` for 0.13° W).
+- "day_scale": Brightness multiplier while the sun is 10° or more above the horizon.
+- "dark_scale": Brightness multiplier once the sun is 6° below the horizon (end of civil twilight). Between the two, brightness fades linearly.
+- Urgent lows (< 55 mg/dL) always go to full brightness.
 
 ### 5. Background Daemon Setup (systemd)
 
